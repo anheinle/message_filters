@@ -36,6 +36,7 @@ import threading
 import rclpy
 
 import builtin_interfaces
+from builtin_interfaces.msg import Time
 from rclpy.clock import ROSClock
 from rclpy.duration import Duration
 from rclpy.logging import LoggingSeverity
@@ -259,7 +260,8 @@ class ApproximateTimeSynchronizer(TimeSynchronizer):
         self.allow_headerless = allow_headerless
 
     def add(self, msg, my_queue, my_queue_index=None):
-        if not hasattr(msg, 'header') or not hasattr(msg.header, 'stamp'):
+        #if not hasattr(msg, 'header') or not hasattr(msg.header, 'stamp'):
+        if not hasattr(msg, 'timestamp'):
             if not self.allow_headerless:
                 msg_filters_logger = rclpy.logging.get_logger('message_filters_approx')
                 msg_filters_logger.set_level(LoggingSeverity.INFO)
@@ -272,10 +274,16 @@ class ApproximateTimeSynchronizer(TimeSynchronizer):
 
             stamp = ROSClock().now()
         else:
-            stamp = msg.header.stamp
+            # stamp = msg.header.stamp
+            stamp = msg.timestamp
             if not hasattr(stamp, 'nanoseconds'):
-                stamp = Time.from_msg(stamp)
-            # print(stamp)
+                # Convert microseconds to seconds and nanoseconds
+                seconds = stamp // 10**6
+                nanoseconds = (stamp % 10**6) * 1000  # Convert microseconds to nanoseconds
+                # Create a Time object with the calculated seconds and nanoseconds
+                stamp = Time(nanoseconds=nanoseconds, seconds=seconds)
+
+
         self.lock.acquire()
         my_queue[stamp.nanoseconds] = msg
         while len(my_queue) > self.queue_size:
